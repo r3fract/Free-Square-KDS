@@ -51,8 +51,8 @@ Requires Docker and a [Square Developer](https://developer.squareup.com/apps) ap
 fine to start with).
 
 ```bash
-git clone https://github.com/r3fract_/kds.git
-cd kds
+git clone https://github.com/r3fract/Free-Square-KDS.git
+cd Free-Square-KDS
 cp .env.example .env
 cp server/.env.example server/.env   # fill in your Square credentials, see below
 docker compose up -d --build
