@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kds}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kds}
+      POSTGRES_DB: ${POSTGRES_DB:-kds}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Official postgres image runs every *.sql file here, in order, on first boot only
+      # (i.e. when the data volume is empty) — same schema.sql the local `db:init` uses.
+      - ./server/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kds} -d ${POSTGRES_DB:-kds}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  server:
+    build: ./server
+    restart: unless-stopped
+    # Real secrets (Square token, webhook key, etc.) live in server/.env, which is
+    # gitignored and excluded from the image build context (server/.dockerignore) —
+    # it's only ever read here, at container runtime.
+    env_file:
+      - ./server/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Overrides whatever DATABASE_URL is in server/.env: inside the compose network the
+      # database is reachable at the "postgres" service name, not localhost.
+      DATABASE_URL: postgres://${POSTGRES_USER:-kds}:${POSTGRES_PASSWORD:-kds}@postgres:5432/${POSTGRES_DB:-kds}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the client bundle at build time — must be a URL the browser can reach,
+        # not the "server" docker-network-internal hostname. Override in .env for anything
+        # beyond local testing (e.g. https://api.yourdomain.com).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+
+  # Optional: only needed when testing the offline/printer-capture path against a physical
+  # LAN printer profile. Not started by a plain `docker compose up`; run with
+  # `docker compose --profile printer-sim up`. Requires Linux host networking to see LAN
+  # mDNS/UDP traffic — see printer-sim/README.md and printer-sim/Dockerfile.
+  printer-sim:
+    build: ./printer-sim
+    profiles: ["printer-sim"]
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ./printer-sim/.env
+    environment:
+      KDS_SERVER_URL: ${PRINTER_SIM_KDS_SERVER_URL:-http://localhost:3000}
+    depends_on:
+      - server
+
+volumes:
+  postgres-data:

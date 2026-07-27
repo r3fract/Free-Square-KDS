@@ -1,0 +1,28 @@
+{
+  "name": "printer-sim",
+  "version": "1.0.0",
+  "description": "Standalone local network printer simulator that captures and parses Square's kitchen-ticket print traffic for offline KDS ingestion",
+  "main": "dist/index.js",
+  "scripts": {
+    "capture": "tsx src/capture-listener.ts",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test:send": "tsx src/testSendTicket.ts",
+    "test:star": "tsx src/testStarProtocol.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "fast-xml-parser": "^4.5.0",
+    "multicast-dns": "^7.2.5",
+    "pngjs": "^7.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/multicast-dns": "^7.2.4",
+    "@types/node": "^20.14.9",
+    "@types/pngjs": "^6.0.5",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}
